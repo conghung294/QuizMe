@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Upload, FileText, Target, Copy, Download, Star, BookOpen, Play, Sparkles, Settings, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
+import { apiService, Question as ApiQuestion, QuestionSet } from '@/lib/api'
 
 interface Question {
   id: number
@@ -24,7 +25,6 @@ interface Question {
 
 export default function QuizGenerator() {
   const [file, setFile] = useState<File | null>(null)
-  const [fileContent, setFileContent] = useState<string>('')
   const [questionCount, setQuestionCount] = useState([10])
   const [subject, setSubject] = useState('')
   const [tone, setTone] = useState('')
@@ -43,15 +43,13 @@ export default function QuizGenerator() {
       return
     }
 
-    setFile(uploadedFile)
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target?.result as string
-      setFileContent(content.substring(0, 1000) + '...')
+    // Check file size (10MB limit)
+    if (uploadedFile.size > 10 * 1024 * 1024) {
+      toast.error("File quá lớn. Kích thước tối đa là 10MB")
+      return
     }
-    reader.readAsText(uploadedFile)
 
+    setFile(uploadedFile)
     toast.success(`${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB) đã được tải lên`)
   }
 
@@ -63,30 +61,46 @@ export default function QuizGenerator() {
 
     setIsGenerating(true)
 
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    try {
+      const response = await apiService.generateQuestions(file, {
+        subject,
+        questionCount: questionCount[0],
+        questionType: questionType.toUpperCase().replace('-', '_'),
+        tone,
+        difficulty,
+      })
 
-    const mockQuestions: Question[] = Array.from({ length: questionCount[0] }, (_, i) => ({
-      id: i + 1,
-      question: `Câu hỏi ${i + 1} về ${subject}?`,
-      options: questionType === 'true-false'
-        ? ['Đúng', 'Sai']
-        : [`Đáp án A cho câu ${i + 1}`, `Đáp án B cho câu ${i + 1}`, `Đáp án C cho câu ${i + 1}`, `Đáp án D cho câu ${i + 1}`],
-      correctAnswer: questionType === 'true-false' ? 'Đúng' : `Đáp án A cho câu ${i + 1}`,
-      explanation: `Giải thích cho câu hỏi ${i + 1}`,
-      type: questionType
-    }))
+      if (response.success) {
+        // Convert API response to frontend format
+        const convertedQuestions: Question[] = response.data.questions.map((q: ApiQuestion, index: number) => ({
+          id: index + 1,
+          question: q.content,
+          options: q.choices.map(choice => choice.content),
+          correctAnswer: q.choices.find(choice =>
+            q.correctAnswers.some(ca => ca.choiceLabel === choice.label)
+          )?.content || q.choices[0].content,
+          explanation: q.explanation,
+          type: questionType
+        }))
 
-    setQuestions(mockQuestions)
-    setQualityMetrics({
-      difficulty: difficulty || 'Trung bình',
-      clarity: 'Nội dung rõ ràng',
-      coverage: 'Độ phủ kiến thức tốt'
-    })
+        setQuestions(convertedQuestions)
+        setQualityMetrics({
+          difficulty: difficulty || 'Trung bình',
+          clarity: 'Nội dung rõ ràng',
+          coverage: 'Độ phủ kiến thức tốt'
+        })
 
-    setIsGenerating(false)
-    localStorage.setItem('generatedQuestions', JSON.stringify(mockQuestions))
+        localStorage.setItem('generatedQuestions', JSON.stringify(convertedQuestions))
+        localStorage.setItem('currentQuestionSet', JSON.stringify(response.data))
 
-    toast.success(`🎉 Đã tạo thành công ${questionCount[0]} câu hỏi!`)
+        toast.success(`🎉 Đã tạo thành công ${response.data.questions.length} câu hỏi!`)
+      }
+    } catch (error) {
+      console.error('Error generating questions:', error)
+      toast.error(error instanceof Error ? error.message : 'Có lỗi xảy ra khi tạo câu hỏi')
+    } finally {
+      setIsGenerating(false)
+    }
   }
 
   const copyAllQuestions = () => {
@@ -149,6 +163,12 @@ export default function QuizGenerator() {
               <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                 <Play className="w-5 h-5 mr-2" />
                 Bắt Đầu Luyện Tập
+              </Button>
+            </Link>
+            <Link href="/library">
+              <Button variant="outline" size="lg" className="border-purple-200 hover:bg-purple-50 shadow-lg">
+                <BookOpen className="w-5 h-5 mr-2" />
+                Thư viện
               </Button>
             </Link>
             <Button variant="outline" size="lg" className="border-purple-200 hover:bg-purple-50 shadow-lg">
@@ -406,8 +426,8 @@ export default function QuizGenerator() {
                                 <div
                                   key={optIndex}
                                   className={`p-3 rounded-lg border transition-all duration-200 ${option === question.correctAnswer
-                                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-800 font-medium shadow-sm'
-                                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-800 font-medium shadow-sm'
+                                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                                     }`}
                                 >
                                   <span className="font-medium text-sm mr-2 text-gray-600">
