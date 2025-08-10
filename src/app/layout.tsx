@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { ToastContainer } from 'react-toastify'
+import Navbar from '@/components/Navbar'
 import 'react-toastify/dist/ReactToastify.css'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -26,21 +28,24 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-            toastClassName="backdrop-blur-sm bg-white/90 border border-purple-200 shadow-xl"
-            progressClassName="bg-gradient-to-r from-purple-500 to-pink-500"
-          />
+          <AuthProvider>
+            <Navbar />
+            {children}
+            <ToastContainer
+              position="top-right"
+              autoClose={3000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="light"
+              toastClassName="backdrop-blur-sm bg-white/90 border border-purple-200 shadow-xl"
+              progressClassName="bg-gradient-to-r from-purple-500 to-pink-500"
+            />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

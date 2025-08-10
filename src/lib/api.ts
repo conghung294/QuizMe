@@ -43,6 +43,15 @@ export interface GenerateQuestionsRequest {
   title?: string;
 }
 
+export interface GenerateMultipleQuestionsRequest {
+  subject: string;
+  questionCount: number;
+  questionTypes: string[];
+  tone?: string;
+  difficulty?: string;
+  title?: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
@@ -50,19 +59,76 @@ export interface ApiResponse<T> {
 }
 
 class ApiService {
+  private getAuthHeaders(): Record<string, string> {
+    const token = localStorage.getItem('auth_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  private async refreshTokenIfNeeded(): Promise<boolean> {
+    try {
+      const storedToken = localStorage.getItem('auth_token')
+      if (!storedToken) {
+        return false
+      }
+
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${storedToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          // Update stored user data with fresh data from server
+          localStorage.setItem('auth_user', JSON.stringify(data.data))
+          return true
+        }
+      }
+
+      // Token is invalid, clear storage
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+      return false
+    } catch (error) {
+      console.error('Error refreshing token:', error)
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+      return false
+    }
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const url = `${API_BASE_URL}${endpoint}`;
-    
-    const response = await fetch(url, {
+
+    let response = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
         ...options.headers,
       },
       ...options,
     });
+
+    // If we get a 401 and have a token, try to refresh it
+    if (response.status === 401 && localStorage.getItem('auth_token')) {
+      const refreshed = await this.refreshTokenIfNeeded();
+      if (refreshed) {
+        // Retry the request with the refreshed token
+        response = await fetch(url, {
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.getAuthHeaders(),
+            ...options.headers,
+          },
+          ...options,
+        });
+      }
+    }
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -81,12 +147,39 @@ class ApiService {
     formData.append('subject', data.subject);
     formData.append('questionCount', data.questionCount.toString());
     formData.append('questionType', data.questionType);
-    
+
     if (data.tone) formData.append('tone', data.tone);
     if (data.difficulty) formData.append('difficulty', data.difficulty);
     if (data.title) formData.append('title', data.title);
 
     const response = await fetch(`${API_BASE_URL}/questions/generate`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async generateMultipleQuestions(
+    file: File,
+    data: GenerateMultipleQuestionsRequest
+  ): Promise<ApiResponse<QuestionSet>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('subject', data.subject);
+    formData.append('questionCount', data.questionCount.toString());
+    formData.append('questionTypes', JSON.stringify(data.questionTypes));
+
+    if (data.tone) formData.append('tone', data.tone);
+    if (data.difficulty) formData.append('difficulty', data.difficulty);
+    if (data.title) formData.append('title', data.title);
+
+    const response = await fetch(`${API_BASE_URL}/questions/generate-multiple`, {
       method: 'POST',
       body: formData,
     });

@@ -7,12 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Upload, FileText, Target, Copy, Download, Star, BookOpen, Play, Sparkles, Settings, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
 import { apiService, Question as ApiQuestion, QuestionSet } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface Question {
   id: number
@@ -24,12 +25,13 @@ interface Question {
 }
 
 export default function QuizGenerator() {
+  const { user } = useAuth()
   const [file, setFile] = useState<File | null>(null)
   const [questionCount, setQuestionCount] = useState([10])
   const [subject, setSubject] = useState('')
   const [tone, setTone] = useState('')
   const [difficulty, setDifficulty] = useState('')
-  const [questionType, setQuestionType] = useState('multiple-choice')
+  const [questionTypes, setQuestionTypes] = useState<string[]>(['multiple-choice'])
   const [questions, setQuestions] = useState<Question[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [qualityMetrics, setQualityMetrics] = useState<any>(null)
@@ -59,13 +61,19 @@ export default function QuizGenerator() {
       return
     }
 
+    if (questionTypes.length === 0) {
+      toast.error('Vui lòng chọn ít nhất một loại câu hỏi')
+      return
+    }
+
     setIsGenerating(true)
 
     try {
-      const response = await apiService.generateQuestions(file, {
+      // Sử dụng API mới để tạo multiple question types
+      const response = await apiService.generateMultipleQuestions(file, {
         subject,
         questionCount: questionCount[0],
-        questionType: questionType.toUpperCase().replace('-', '_'),
+        questionTypes: questionTypes.map(type => type.toUpperCase().replace('-', '_')),
         tone,
         difficulty,
       })
@@ -80,7 +88,7 @@ export default function QuizGenerator() {
             q.correctAnswers.some(ca => ca.choiceLabel === choice.label)
           )?.content || q.choices[0].content,
           explanation: q.explanation,
-          type: questionType
+          type: q.type.toLowerCase().replace('_', '-')
         }))
 
         setQuestions(convertedQuestions)
@@ -93,7 +101,9 @@ export default function QuizGenerator() {
         localStorage.setItem('generatedQuestions', JSON.stringify(convertedQuestions))
         localStorage.setItem('currentQuestionSet', JSON.stringify(response.data))
 
-        toast.success(`🎉 Đã tạo thành công ${response.data.questions.length} câu hỏi!`)
+        toast.success(`🎉 Đã tạo thành công ${convertedQuestions.length} câu hỏi với ${questionTypes.length} loại khác nhau!`)
+      } else {
+        toast.error('Không thể tạo câu hỏi nào')
       }
     } catch (error) {
       console.error('Error generating questions:', error)
@@ -154,9 +164,17 @@ export default function QuizGenerator() {
           <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 bg-clip-text text-transparent mb-4">
             Tạo Câu Hỏi Trắc Nghiệm
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-xl text-gray-600 mb-4 max-w-2xl mx-auto leading-relaxed">
             Biến nội dung của bạn thành bộ câu hỏi trắc nghiệm thông minh với sức mạnh AI
           </p>
+
+          {user && (
+            <div className="mb-6">
+              <p className="text-lg text-purple-700 font-medium">
+                Chào mừng trở lại, {user.name || user.email}! 👋
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/practice">
@@ -307,8 +325,8 @@ export default function QuizGenerator() {
 
                 {/* Question Type */}
                 <div className="space-y-3">
-                  <Label className="text-sm font-semibold text-gray-700">Loại câu hỏi</Label>
-                  <RadioGroup value={questionType} onValueChange={setQuestionType} className="space-y-3">
+                  <Label className="text-sm font-semibold text-gray-700">Loại câu hỏi (có thể chọn nhiều)</Label>
+                  <div className="space-y-3">
                     {[
                       { value: 'multiple-choice', label: '🔘 Trắc nghiệm lựa chọn đơn', desc: 'Chọn 1 đáp án đúng' },
                       { value: 'true-false', label: '✅ Đúng/Sai', desc: 'Câu hỏi đúng hoặc sai' },
@@ -317,14 +335,25 @@ export default function QuizGenerator() {
                       { value: 'completion', label: '📝 Điền khuyết', desc: 'Điền từ vào chỗ trống' }
                     ].map((type) => (
                       <div key={type.value} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-purple-50 transition-colors">
-                        <RadioGroupItem value={type.value} id={type.value} className="mt-1" />
+                        <Checkbox
+                          id={type.value}
+                          checked={questionTypes.includes(type.value)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setQuestionTypes(prev => [...prev, type.value])
+                            } else {
+                              setQuestionTypes(prev => prev.filter(t => t !== type.value))
+                            }
+                          }}
+                          className="mt-1"
+                        />
                         <div className="flex-1">
                           <Label htmlFor={type.value} className="font-medium cursor-pointer">{type.label}</Label>
                           <p className="text-xs text-gray-500 mt-1">{type.desc}</p>
                         </div>
                       </div>
                     ))}
-                  </RadioGroup>
+                  </div>
                 </div>
 
                 <Button
