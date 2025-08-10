@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Checkbox } from '@/components/ui/checkbox'
-import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Home, RotateCcw, Trophy, Target, Clock, Play, Pause } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Home, RotateCcw, Trophy, Target, Clock, Play, Pause, Brain, ThumbsUp, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
 import QuestionRenderer from '@/components/QuestionRenderer'
@@ -32,6 +32,9 @@ export default function PracticePage() {
     const [timeElapsed, setTimeElapsed] = useState(0)
     const [isPaused, setIsPaused] = useState(false)
     const [isCompleted, setIsCompleted] = useState(false)
+    const [memoryRatings, setMemoryRatings] = useState<{ [key: number]: 'good' | 'okay' | 'review' }>({})
+    const [showMemoryRating, setShowMemoryRating] = useState(false)
+    const [showResults, setShowResults] = useState(false)
 
     useEffect(() => {
         const savedQuestions = localStorage.getItem('generatedQuestions')
@@ -112,6 +115,36 @@ export default function PracticePage() {
                 isCorrect = selectedAnswers.length === correctAnswers.length &&
                     selectedAnswers.every(answer => correctAnswers.includes(answer))
         }
+
+        if (isCorrect) {
+            setScore(prev => prev + 1)
+            toast.success("Chính xác! Bạn đã chọn đúng đáp án")
+        } else {
+            const correctAnswerText = questionType === 'matching'
+                ? 'Tất cả các cặp ghép đôi'
+                : Array.isArray(currentQuestion.correctAnswer)
+                    ? currentQuestion.correctAnswer.join(', ')
+                    : currentQuestion.correctAnswer
+            toast.error(`Chưa chính xác. Đáp án đúng là: ${correctAnswerText}`)
+        }
+
+        // Show memory rating after showing answer
+        setShowMemoryRating(true)
+    }
+
+    const handleMemoryRating = (rating: 'good' | 'okay' | 'review') => {
+        setMemoryRatings(prev => ({
+            ...prev,
+            [currentQuestionIndex]: rating
+        }))
+        setShowMemoryRating(false)
+
+        // Auto move to next question or show results
+        if (currentQuestionIndex < questions.length - 1) {
+            nextQuestion()
+        } else {
+            setShowResults(true)
+        }
     }
 
     const nextQuestion = () => {
@@ -119,6 +152,7 @@ export default function PracticePage() {
             setCurrentQuestionIndex(prev => prev + 1)
             setSelectedAnswers([])
             setShowAnswer(false)
+            setShowMemoryRating(false)
         } else {
             // Mark as completed when reaching the last question
             setIsCompleted(true)
@@ -184,6 +218,126 @@ export default function PracticePage() {
 
     const completedQuestions = Object.keys(userAnswers).length
     const accuracy = completedQuestions > 0 ? ((score / completedQuestions) * 100).toFixed(1) : '0'
+
+    // Calculate memory rating statistics
+    const memoryStats = {
+        good: Object.values(memoryRatings).filter(rating => rating === 'good').length,
+        okay: Object.values(memoryRatings).filter(rating => rating === 'okay').length,
+        review: Object.values(memoryRatings).filter(rating => rating === 'review').length
+    }
+
+    const reviewQuestions = questions.filter((_, index) => memoryRatings[index] === 'review')
+
+    // Show results page
+    if (showResults) {
+        return (
+            <ProtectedRoute>
+                <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50">
+                    <div className="relative z-10 max-w-4xl mx-auto px-4 py-8">
+                        <div className="text-center mb-8">
+                            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-500 bg-clip-text text-transparent mb-4">
+                                Kết Quả Luyện Tập
+                            </h1>
+                        </div>
+
+                        <Card className="mb-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+                            <CardContent className="p-8">
+                                {/* Overall Stats */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                    <div className="text-center p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                                        <Trophy className="w-12 h-12 text-green-600 mx-auto mb-3" />
+                                        <div className="text-3xl font-bold text-green-700">{score}/{questions.length}</div>
+                                        <div className="text-sm text-green-600">Câu đúng</div>
+                                    </div>
+                                    <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200">
+                                        <Target className="w-12 h-12 text-blue-600 mx-auto mb-3" />
+                                        <div className="text-3xl font-bold text-blue-700">{accuracy}%</div>
+                                        <div className="text-sm text-blue-600">Độ chính xác</div>
+                                    </div>
+                                    <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+                                        <Clock className="w-12 h-12 text-purple-600 mx-auto mb-3" />
+                                        <div className="text-3xl font-bold text-purple-700">{Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}</div>
+                                        <div className="text-sm text-purple-600">Thời gian</div>
+                                    </div>
+                                </div>
+
+                                {/* Memory Rating Chart */}
+                                <div className="mb-8">
+                                    <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                        <Brain className="w-6 h-6 text-purple-600" />
+                                        Đánh Giá Mức Độ Nhớ
+                                    </h3>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                                            <ThumbsUp className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                                            <div className="text-2xl font-bold text-green-700">{memoryStats.good}</div>
+                                            <div className="text-sm text-green-600">Nhớ tốt</div>
+                                        </div>
+                                        <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+                                            <CheckCircle className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
+                                            <div className="text-2xl font-bold text-yellow-700">{memoryStats.okay}</div>
+                                            <div className="text-sm text-yellow-600">Tạm ổn</div>
+                                        </div>
+                                        <div className="text-center p-4 bg-gradient-to-br from-red-50 to-pink-50 rounded-lg border border-red-200">
+                                            <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                                            <div className="text-2xl font-bold text-red-700">{memoryStats.review}</div>
+                                            <div className="text-sm text-red-600">Cần xem lại</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Review Questions */}
+                                {reviewQuestions.length > 0 && (
+                                    <div className="mb-8">
+                                        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                            <AlertCircle className="w-6 h-6 text-red-600" />
+                                            Câu Hỏi Cần Xem Lại ({reviewQuestions.length})
+                                        </h3>
+                                        <div className="space-y-4">
+                                            {reviewQuestions.map((question, index) => (
+                                                <div key={index} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                                    <div className="font-medium text-gray-800 mb-2">
+                                                        Câu {questions.indexOf(question) + 1}: {question.question}
+                                                    </div>
+                                                    <div className="text-sm text-green-700">
+                                                        <strong>Đáp án đúng:</strong> {Array.isArray(question.correctAnswer) ? question.correctAnswer.join(', ') : question.correctAnswer}
+                                                    </div>
+                                                    {question.explanation && (
+                                                        <div className="text-sm text-gray-600 mt-2">
+                                                            <strong>Giải thích:</strong> {question.explanation}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex flex-wrap justify-center gap-4">
+                                    <Button onClick={() => window.location.reload()} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                                        <RotateCcw className="w-4 h-4 mr-2" />
+                                        Luyện Tập Lại
+                                    </Button>
+                                    <Link href="/">
+                                        <Button variant="outline" className="border-purple-200 hover:bg-purple-50">
+                                            <Home className="w-4 h-4 mr-2" />
+                                            Trang Chủ
+                                        </Button>
+                                    </Link>
+                                    <Link href="/library">
+                                        <Button variant="outline" className="border-purple-200 hover:bg-purple-50">
+                                            Thư Viện
+                                        </Button>
+                                    </Link>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </ProtectedRoute>
+        )
+    }
 
     return (
         <ProtectedRoute>
@@ -352,6 +506,41 @@ export default function PracticePage() {
                                 </div>
                             )}
 
+                            {/* Memory Rating Section */}
+                            {showAnswer && showMemoryRating && (
+                                <div className="p-5 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 animate-in slide-in-from-top duration-300">
+                                    <div className="text-center">
+                                        <div className="p-3 bg-purple-100 rounded-full w-fit mx-auto mb-4">
+                                            <Brain className="w-6 h-6 text-purple-600" />
+                                        </div>
+                                        <h4 className="font-semibold text-purple-900 mb-3">Đánh giá mức độ bạn nhớ câu này:</h4>
+                                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                                            <Button
+                                                onClick={() => handleMemoryRating('good')}
+                                                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+                                            >
+                                                <ThumbsUp className="w-4 h-4 mr-2" />
+                                                Nhớ tốt
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleMemoryRating('okay')}
+                                                className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
+                                            >
+                                                <CheckCircle className="w-4 h-4 mr-2" />
+                                                Tạm ổn
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleMemoryRating('review')}
+                                                className="bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white"
+                                            >
+                                                <AlertCircle className="w-4 h-4 mr-2" />
+                                                Cần xem lại
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex justify-between items-center pt-4">
                                 <Button
                                     variant="outline"
@@ -387,15 +576,28 @@ export default function PracticePage() {
                                     </div>
                                 )}
 
-                                <Button
-                                    variant="outline"
-                                    onClick={nextQuestion}
-                                    disabled={currentQuestionIndex === questions.length - 1}
-                                    className="border-purple-200 hover:bg-purple-50"
-                                >
-                                    Câu sau
-                                    <ChevronRight className="w-4 h-4 ml-1" />
-                                </Button>
+                                {!showMemoryRating && (
+                                    currentQuestionIndex === questions.length - 1 ? (
+                                        <Button
+                                            onClick={() => setShowResults(true)}
+                                            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                                            disabled={!showAnswer}
+                                        >
+                                            <Trophy className="w-4 h-4 mr-2" />
+                                            Hoàn thành
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            variant="outline"
+                                            onClick={nextQuestion}
+                                            disabled={!showAnswer}
+                                            className="border-purple-200 hover:bg-purple-50"
+                                        >
+                                            Câu sau
+                                            <ChevronRight className="w-4 h-4 ml-1" />
+                                        </Button>
+                                    )
+                                )}
                             </div>
                         </CardContent>
                     </Card>
