@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Home, RotateCcw, Trophy, Target, Clock, Play, Pause } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
+import QuestionRenderer from '@/components/QuestionRenderer'
 
 interface Question {
     id: number
@@ -54,15 +55,17 @@ export default function PracticePage() {
     const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0
 
     const handleAnswerSelect = (answer: string) => {
-        if (currentQuestion.type === 'multiple-response') {
-            // Multiple selection for multiple-response questions
+        const questionType = currentQuestion.type.toLowerCase().replace('_', '-')
+
+        if (questionType === 'multiple-response' || questionType === 'matching') {
+            // Multiple selection for multiple-response and matching questions
             setSelectedAnswers(prev =>
                 prev.includes(answer)
                     ? prev.filter(a => a !== answer)
                     : [...prev, answer]
             )
         } else {
-            // Single selection for other question types
+            // Single selection for other question types (multiple-choice, true-false, completion)
             setSelectedAnswers([answer])
         }
     }
@@ -77,19 +80,37 @@ export default function PracticePage() {
         const newUserAnswers = { ...userAnswers, [currentQuestionIndex]: selectedAnswers }
         setUserAnswers(newUserAnswers)
 
-        // Check if answer is correct
+        // Check if answer is correct based on question type
         const correctAnswers = Array.isArray(currentQuestion.correctAnswer)
             ? currentQuestion.correctAnswer
             : [currentQuestion.correctAnswer]
 
-        const isCorrect = selectedAnswers.length === correctAnswers.length &&
-            selectedAnswers.every(answer => correctAnswers.includes(answer))
+        const questionType = currentQuestion.type.toLowerCase().replace('_', '-')
+        let isCorrect = false
 
-        if (isCorrect) {
-            setScore(prev => prev + 1)
-            toast.success("Chính xác! Bạn đã chọn đúng đáp án")
-        } else {
-            toast.error(`Chưa chính xác. Đáp án đúng là: ${Array.isArray(currentQuestion.correctAnswer) ? currentQuestion.correctAnswer.join(', ') : currentQuestion.correctAnswer}`)
+        switch (questionType) {
+            case 'multiple-choice':
+            case 'true-false':
+            case 'completion':
+                // Single correct answer
+                isCorrect = selectedAnswers.length === 1 && correctAnswers.includes(selectedAnswers[0])
+                break
+
+            case 'multiple-response':
+                // Multiple correct answers - must select all and only correct answers
+                isCorrect = selectedAnswers.length === correctAnswers.length &&
+                    selectedAnswers.every(answer => correctAnswers.includes(answer))
+                break
+
+            case 'matching':
+                // For matching, all pairs should be selected (all options are correct)
+                isCorrect = selectedAnswers.length === currentQuestion.options.length
+                break
+
+            default:
+                // Fallback to original logic
+                isCorrect = selectedAnswers.length === correctAnswers.length &&
+                    selectedAnswers.every(answer => correctAnswers.includes(answer))
         }
     }
 
@@ -294,63 +315,28 @@ export default function PracticePage() {
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <div className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
-                                <p className="text-lg font-medium text-gray-800 leading-relaxed">{currentQuestion.question}</p>
-                            </div>
-
-                            <div className="space-y-3">
-                                {currentQuestion.type === 'multiple-response' && (
-                                    <p className="text-sm text-gray-600 mb-4">
-                                        💡 Câu hỏi này có thể có nhiều đáp án đúng. Hãy chọn tất cả đáp án bạn cho là đúng.
-                                    </p>
-                                )}
-                                {currentQuestion.options.map((option, index) => {
-                                    const isSelected = selectedAnswers.includes(option)
+                            <QuestionRenderer
+                                question={currentQuestion}
+                                selectedAnswers={selectedAnswers}
+                                onAnswerSelect={handleAnswerSelect}
+                                showAnswer={showAnswer}
+                                isCorrect={(() => {
                                     const correctAnswers = Array.isArray(currentQuestion.correctAnswer)
                                         ? currentQuestion.correctAnswer
                                         : [currentQuestion.correctAnswer]
-                                    const isCorrect = correctAnswers.includes(option)
-                                    const isWrong = showAnswer && isSelected && !isCorrect
 
-                                    return (
-                                        <button
-                                            key={index}
-                                            onClick={() => !showAnswer && handleAnswerSelect(option)}
-                                            disabled={showAnswer}
-                                            className={`w-full p-5 text-left rounded-xl border-2 transition-all duration-300 transform hover:scale-[1.02] ${showAnswer
-                                                ? isCorrect
-                                                    ? 'border-green-400 bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 shadow-lg'
-                                                    : isWrong
-                                                        ? 'border-red-400 bg-gradient-to-r from-red-50 to-pink-50 text-red-800 shadow-lg'
-                                                        : 'border-gray-200 bg-gray-50'
-                                                : isSelected
-                                                    ? 'border-purple-400 bg-gradient-to-r from-purple-50 to-pink-50 shadow-lg'
-                                                    : 'border-gray-200 hover:border-purple-300 hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 hover:shadow-md'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm border-2 ${showAnswer && isCorrect
-                                                    ? 'bg-green-100 border-green-300 text-green-700'
-                                                    : showAnswer && isWrong
-                                                        ? 'bg-red-100 border-red-300 text-red-700'
-                                                        : isSelected
-                                                            ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                                            : 'bg-white border-gray-300 text-gray-600'
-                                                    }`}>
-                                                    {String.fromCharCode(65 + index)}
-                                                </div>
-                                                <span className="flex-1 font-medium">{option}</span>
-                                                {showAnswer && isCorrect && (
-                                                    <CheckCircle className="w-6 h-6 text-green-600" />
-                                                )}
-                                                {showAnswer && isWrong && (
-                                                    <XCircle className="w-6 h-6 text-red-600" />
-                                                )}
-                                            </div>
-                                        </button>
-                                    )
-                                })}
-                            </div>
+                                    const questionType = currentQuestion.type.toLowerCase().replace('_', '-')
+
+                                    if (questionType === 'multiple-response' || questionType === 'matching') {
+                                        // For multiple selection, check if all selected answers are correct and all correct answers are selected
+                                        return selectedAnswers.length === correctAnswers.length &&
+                                            selectedAnswers.every(answer => correctAnswers.includes(answer))
+                                    } else {
+                                        // For single selection, check if the selected answer is correct
+                                        return selectedAnswers.length === 1 && correctAnswers.includes(selectedAnswers[0])
+                                    }
+                                })()}
+                            />
 
                             {showAnswer && currentQuestion.explanation && (
                                 <div className="p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 animate-in slide-in-from-top duration-300">

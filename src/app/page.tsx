@@ -80,16 +80,16 @@ export default function QuizGenerator() {
 
       if (response.success) {
         // Convert API response to frontend format
-        const convertedQuestions: Question[] = response.data.questions.map((q: ApiQuestion, index: number) => ({
+        const convertedQuestions: Question[] = response?.data?.questions?.map((q: ApiQuestion, index: number) => ({
           id: index + 1,
           question: q.content,
           options: q.choices.map(choice => choice.content),
-          correctAnswer: q.choices.find(choice =>
-            q.correctAnswers.some(ca => ca.choiceLabel === choice.label)
-          )?.content || q.choices[0].content,
+          correctAnswer: q.correctAnswers.map(ca =>
+            q.choices.find(choice => choice.label === ca.choiceLabel)?.content
+          ).filter((content): content is string => Boolean(content)),
           explanation: q.explanation,
           type: q.type.toLowerCase().replace('_', '-')
-        }))
+        })) || []
 
         setQuestions(convertedQuestions)
         setQualityMetrics({
@@ -331,7 +331,7 @@ export default function QuizGenerator() {
                       { value: 'multiple-choice', label: '🔘 Trắc nghiệm lựa chọn đơn', desc: 'Chọn 1 đáp án đúng' },
                       { value: 'true-false', label: '✅ Đúng/Sai', desc: 'Câu hỏi đúng hoặc sai' },
                       { value: 'multiple-response', label: '☑️ Nhiều đáp án đúng', desc: 'Chọn nhiều đáp án' },
-                      { value: 'matching', label: '🔗 Ghép đôi', desc: 'Nối các cặp tương ứng' },
+                      // { value: 'matching', label: '🔗 Ghép đôi', desc: 'Nối các cặp tương ứng' },
                       { value: 'completion', label: '📝 Điền khuyết', desc: 'Điền từ vào chỗ trống' }
                     ].map((type) => (
                       <div key={type.value} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-purple-50 transition-colors">
@@ -451,25 +451,30 @@ export default function QuizGenerator() {
                           <div className="flex-1 space-y-3">
                             <p className="font-semibold text-gray-800 leading-relaxed">{question.question}</p>
                             <div className="grid gap-2">
-                              {question.options.map((option, optIndex) => (
-                                <div
-                                  key={optIndex}
-                                  className={`p-3 rounded-lg border transition-all duration-200 ${option === question.correctAnswer
-                                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-800 font-medium shadow-sm'
-                                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                                    }`}
-                                >
-                                  <span className="font-medium text-sm mr-2 text-gray-600">
-                                    {String.fromCharCode(65 + optIndex)}.
-                                  </span>
-                                  {option}
-                                  {option === question.correctAnswer && (
-                                    <Badge className="ml-2 bg-green-100 text-green-700 border-green-200 text-xs">
-                                      ✓ Đúng
-                                    </Badge>
-                                  )}
-                                </div>
-                              ))}
+                              {question.options.map((option, optIndex) => {
+                                const isCorrect = Array.isArray(question.correctAnswer)
+                                  ? question.correctAnswer.includes(option)
+                                  : question.correctAnswer === option
+                                return (
+                                  <div
+                                    key={optIndex}
+                                    className={`p-3 rounded-lg border transition-all duration-200 ${isCorrect
+                                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 text-green-800 font-medium shadow-sm'
+                                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                      }`}
+                                  >
+                                    <span className="font-medium text-sm mr-2 text-gray-600">
+                                      {String.fromCharCode(65 + optIndex)}.
+                                    </span>
+                                    {option}
+                                    {isCorrect && (
+                                      <Badge className="ml-2 bg-green-100 text-green-700 border-green-200 text-xs">
+                                        ✓ Đúng
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                             {question.explanation && (
                               <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">

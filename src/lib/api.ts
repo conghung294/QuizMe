@@ -30,8 +30,11 @@ export interface QuestionSet {
   difficulty?: string;
   type: string;
   fileName?: string;
+  fileContent?: string;
   createdAt: string;
-  questions: Question[];
+  updatedAt?: string;
+  userId?: string;
+  questions?: Question[]; // Optional because getQuestionSets() doesn't include questions
 }
 
 export interface GenerateQuestionsRequest {

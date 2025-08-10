@@ -7,14 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { BookOpen, Play, Trash2, Search, Filter, Calendar, Clock, Plus, User, LogOut, BarChart3, Share2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BookOpen, Play, Trash2, Search, Filter, Calendar, Plus, BarChart3, Share2, ChevronLeft, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
 import { useRouter } from 'next/navigation'
 import { apiService, QuestionSet } from '@/lib/api'
-import { useAuth } from '@/contexts/AuthContext'
-
-
 
 export default function LibraryPage() {
     const [quizSets, setQuizSets] = useState<QuestionSet[]>([])
@@ -25,9 +22,8 @@ export default function LibraryPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(6)
     const [isLoading, setIsLoading] = useState(true)
+    const [practiceLoading, setPracticeLoading] = useState<string | null>(null) // Track which quiz is being loaded for practice
     const router = useRouter()
-    const { user, logout } = useAuth()
-
     const loadQuizSets = async () => {
         try {
             setIsLoading(true)
@@ -85,29 +81,64 @@ export default function LibraryPage() {
 
 
 
-    const handleDeleteQuizSet = (id: string) => {
-        const updatedSets = quizSets.filter(set => set.id !== id)
-        setQuizSets(updatedSets)
-        localStorage.setItem('quizSets', JSON.stringify(updatedSets))
-        toast.success("Đã xóa bộ câu hỏi")
+    const handleDeleteQuizSet = async (id: string) => {
+        try {
+            const response = await apiService.deleteQuestionSet(id)
+            if (response.success) {
+                // Remove from local state
+                const updatedSets = quizSets.filter(set => set.id !== id)
+                setQuizSets(updatedSets)
+                setFilteredQuizSets(filteredQuizSets.filter(set => set.id !== id))
+                toast.success("Đã xóa bộ câu hỏi")
+            } else {
+                toast.error("Không thể xóa bộ câu hỏi")
+            }
+        } catch (error) {
+            console.error('Error deleting quiz set:', error)
+            toast.error("Có lỗi xảy ra khi xóa bộ câu hỏi")
+        }
     }
 
-    const handlePractice = (quizSet: QuestionSet) => {
-        // Convert to practice format and save
-        const practiceQuestions = quizSet.questions.map((q, index) => ({
-            id: index + 1,
-            question: q.content,
-            options: q.choices.map((choice: any) => choice.content),
-            correctAnswer: q.choices.find((choice: any) =>
-                q.correctAnswers.some((ca: any) => ca.choiceLabel === choice.label)
-            )?.content || q.choices[0].content,
-            explanation: q.explanation,
-            type: q.type.toLowerCase().replace('_', '-')
-        }))
+    const handlePractice = async (quizSet: QuestionSet) => {
+        try {
+            setPracticeLoading(quizSet.id)
 
-        localStorage.setItem('generatedQuestions', JSON.stringify(practiceQuestions))
-        toast.success(`Bắt đầu luyện tập: ${quizSet.title}`)
-        router.push('/practice')
+            // Fetch detailed question set with questions
+            const response = await apiService.getQuestionSet(quizSet.id)
+            if (!response.success || !response.data) {
+                toast.error('Không thể tải chi tiết bộ câu hỏi')
+                return
+            }
+
+            const detailedQuizSet = response.data
+
+            // Check if questions exist
+            if (!detailedQuizSet.questions || detailedQuizSet.questions.length === 0) {
+                toast.error('Bộ câu hỏi không có câu hỏi nào')
+                return
+            }
+
+            // Convert to practice format and save
+            const practiceQuestions = detailedQuizSet.questions.map((q, index) => ({
+                id: index + 1,
+                question: q.content,
+                options: q.choices.map((choice: any) => choice.content),
+                correctAnswer: q.correctAnswers.map((ca: any) =>
+                    q.choices.find((choice: any) => choice.label === ca.choiceLabel)?.content
+                ).filter((content): content is string => Boolean(content)),
+                explanation: q.explanation,
+                type: q.type.toLowerCase().replace('_', '-')
+            }))
+
+            localStorage.setItem('generatedQuestions', JSON.stringify(practiceQuestions))
+            toast.success(`Bắt đầu luyện tập: ${quizSet.title}`)
+            router.push('/practice')
+        } catch (error) {
+            console.error('Error loading question set details:', error)
+            toast.error('Có lỗi xảy ra khi tải chi tiết bộ câu hỏi')
+        } finally {
+            setPracticeLoading(null)
+        }
     }
 
     const formatDate = (dateString: string) => {
@@ -135,6 +166,19 @@ export default function LibraryPage() {
             case 'medium': return '🟡'
             case 'hard': return '🔴'
             default: return '⚪'
+        }
+    }
+
+    const formatQuestionType = (type: string) => {
+        switch (type) {
+            case 'MULTIPLE_CHOICE': return 'Trắc nghiệm'
+            case 'TRUE_FALSE': return 'Đúng/Sai'
+            case 'MULTIPLE_RESPONSE': return 'Nhiều lựa chọn'
+            case 'MATCHING': return 'Ghép đôi'
+            case 'COMPLETION': return 'Điền khuyết'
+            case 'FILL_IN_BLANK': return 'Điền từ' // Legacy support
+            case 'ESSAY': return 'Tự luận' // Legacy support
+            default: return type
         }
     }
 
@@ -249,9 +293,9 @@ export default function LibraryPage() {
                                                 <Badge variant="outline" className="border-purple-200 text-purple-700">
                                                     {quizSet.subject}
                                                 </Badge>
-                                                {/* <Badge variant="outline" className="border-gray-200">
-                                                    {quizSet.questions.length} câu
-                                                </Badge> */}
+                                                <Badge variant="outline" className="border-gray-200">
+                                                    {formatQuestionType(quizSet.type)}
+                                                </Badge>
                                             </div>
                                         </CardHeader>
 
@@ -265,10 +309,20 @@ export default function LibraryPage() {
                                             <div className="flex gap-2">
                                                 <Button
                                                     onClick={() => handlePractice(quizSet)}
-                                                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
+                                                    disabled={practiceLoading === quizSet.id}
+                                                    className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg disabled:opacity-50"
                                                 >
-                                                    <Play className="w-4 h-4 mr-2" />
-                                                    Luyện tập
+                                                    {practiceLoading === quizSet.id ? (
+                                                        <>
+                                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                                            Đang tải...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Play className="w-4 h-4 mr-2" />
+                                                            Luyện tập
+                                                        </>
+                                                    )}
                                                 </Button>
 
                                                 <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50">
