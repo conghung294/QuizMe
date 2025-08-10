@@ -52,7 +52,14 @@ export default function QuizGenerator() {
     }
 
     setFile(uploadedFile)
-    toast.success(`${uploadedFile.name} (${(uploadedFile.size / 1024).toFixed(1)} KB) đã được tải lên`)
+    const fileSizeKB = (uploadedFile.size / 1024).toFixed(1)
+    const fileSizeMB = (uploadedFile.size / (1024 * 1024)).toFixed(1)
+
+    if (uploadedFile.size > 1024 * 1024) { // > 1MB
+      toast.success(`${uploadedFile.name} (${fileSizeMB} MB) đã được tải lên.`)
+    } else {
+      toast.success(`${uploadedFile.name} (${fileSizeKB} KB) đã được tải lên`)
+    }
   }
 
   const generateQuestions = async () => {
@@ -79,6 +86,15 @@ export default function QuizGenerator() {
       })
 
       if (response.success) {
+        // Check if text was truncated and show warning
+        if (response.data?.textProcessingInfo?.wasTruncated) {
+          const { originalLength, truncatedLength } = response.data.textProcessingInfo;
+          toast.warning(
+            `⚠️ Văn bản đầu vào quá dài (${Math.round(originalLength / 1000)}K ký tự) đã được cắt ngắn xuống ${Math.round(truncatedLength / 1000)}K ký tự để tối ưu hóa xử lý. Câu hỏi được tạo dựa trên phần đầu của tài liệu.`,
+            { autoClose: 8000 }
+          );
+        }
+
         // Convert API response to frontend format
         const convertedQuestions: Question[] = response?.data?.questions?.map((q: ApiQuestion, index: number) => ({
           id: index + 1,
@@ -441,7 +457,7 @@ export default function QuizGenerator() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-[600px] overflow-y-auto space-y-4 pr-2">
+                  <div className="max-h-[850px] overflow-y-auto space-y-4 pr-2">
                     {questions.map((question, index) => (
                       <div key={question.id} className="group border border-gray-200 rounded-xl p-5 hover:border-purple-300 hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white to-gray-50">
                         <div className="flex items-start gap-4">

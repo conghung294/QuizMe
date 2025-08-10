@@ -35,6 +35,11 @@ export interface QuestionSet {
   updatedAt?: string;
   userId?: string;
   questions?: Question[]; // Optional because getQuestionSets() doesn't include questions
+  textProcessingInfo?: {
+    wasTruncated: boolean;
+    originalLength: number;
+    truncatedLength: number;
+  };
 }
 
 export interface GenerateQuestionsRequest {
