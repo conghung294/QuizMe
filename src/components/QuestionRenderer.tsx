@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -193,7 +192,6 @@ export default function QuestionRenderer({
             {question.options.map((option, index) => {
                 const optionLabel = String.fromCharCode(65 + index) // A, B, C, D
                 const isSelected = selectedAnswers.includes(option)
-                const isCorrect = true // For matching, all pairs should be correct
 
                 return (
                     <div

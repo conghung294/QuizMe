@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     initializeAuth()
-  }, [])
+  }, [API_BASE_URL])
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {

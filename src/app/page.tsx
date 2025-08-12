@@ -12,8 +12,9 @@ import { Badge } from '@/components/ui/badge'
 import { Upload, FileText, Target, Copy, Download, Star, BookOpen, Play, Sparkles, Settings, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
-import { apiService, Question as ApiQuestion, QuestionSet } from '@/lib/api'
+import { apiService, Question as ApiQuestion } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
+import type { QualityMetrics } from '@/lib/api'
 
 interface Question {
   id: number
@@ -34,7 +35,7 @@ export default function QuizGenerator() {
   const [questionTypes, setQuestionTypes] = useState<string[]>(['multiple-choice'])
   const [questions, setQuestions] = useState<Question[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
-  const [qualityMetrics, setQualityMetrics] = useState<any>(null)
+  const [qualityMetrics, setQualityMetrics] = useState<QualityMetrics | null>(null)
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0]

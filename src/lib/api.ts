@@ -66,6 +66,52 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+export interface PracticeSession {
+  id: string;
+  questionSetId: string;
+  userId?: string;
+  startedAt: string;
+  completedAt?: string;
+  status: 'active' | 'completed' | 'paused';
+  currentQuestionIndex?: number;
+  answers: PracticeAnswer[];
+  score?: number;
+  totalQuestions: number;
+}
+
+export interface PracticeAnswer {
+  questionId: string;
+  selectedChoices: string[];
+  isCorrect: boolean;
+  answeredAt: string;
+}
+
+export interface PracticeStartResponse {
+  sessionId: string;
+  questionSet: QuestionSet;
+  session: PracticeSession;
+}
+
+export interface PracticeSubmitResponse {
+  isCorrect: boolean;
+  correctAnswers: string[];
+  explanation?: string;
+}
+
+export interface PracticeCompleteResponse {
+  session: PracticeSession;
+  finalScore: number;
+  totalQuestions: number;
+  accuracy: number;
+  timeSpent: number;
+}
+
+export interface QualityMetrics {
+  difficulty: string;
+  clarity: string;
+  coverage: string;
+}
+
 class ApiService {
   private getAuthHeaders(): Record<string, string> {
     const token = localStorage.getItem('auth_token');
@@ -217,8 +263,8 @@ class ApiService {
   }
 
   // Practice API methods
-  async startPractice(questionSetId: string, userId?: string): Promise<ApiResponse<any>> {
-    return this.request<any>('/practice/start', {
+  async startPractice(questionSetId: string, userId?: string): Promise<ApiResponse<PracticeStartResponse>> {
+    return this.request<PracticeStartResponse>('/practice/start', {
       method: 'POST',
       body: JSON.stringify({ questionSetId, userId }),
     });
@@ -228,27 +274,27 @@ class ApiService {
     sessionId: string,
     questionId: string,
     selectedChoices: string[]
-  ): Promise<ApiResponse<any>> {
-    return this.request<any>('/practice/answer', {
+  ): Promise<ApiResponse<PracticeSubmitResponse>> {
+    return this.request<PracticeSubmitResponse>('/practice/answer', {
       method: 'POST',
       body: JSON.stringify({ sessionId, questionId, selectedChoices }),
     });
   }
 
-  async completePractice(sessionId: string): Promise<ApiResponse<any>> {
-    return this.request<any>('/practice/complete', {
+  async completePractice(sessionId: string): Promise<ApiResponse<PracticeCompleteResponse>> {
+    return this.request<PracticeCompleteResponse>('/practice/complete', {
       method: 'POST',
       body: JSON.stringify({ sessionId }),
     });
   }
 
-  async getPracticeSession(sessionId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/practice/sessions/${sessionId}`);
+  async getPracticeSession(sessionId: string): Promise<ApiResponse<PracticeSession>> {
+    return this.request<PracticeSession>(`/practice/sessions/${sessionId}`);
   }
 
-  async getPracticeSessions(userId?: string): Promise<ApiResponse<any[]>> {
+  async getPracticeSessions(userId?: string): Promise<ApiResponse<PracticeSession[]>> {
     const params = userId ? `?userId=${userId}` : '';
-    return this.request<any[]>(`/practice/sessions${params}`);
+    return this.request<PracticeSession[]>(`/practice/sessions${params}`);
   }
 }
 

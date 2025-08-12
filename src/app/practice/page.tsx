@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Checkbox } from '@/components/ui/checkbox'
 import { ChevronLeft, ChevronRight, CheckCircle, XCircle, Home, RotateCcw, Trophy, Target, Clock, Play, Pause, Brain, ThumbsUp, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'react-toastify'

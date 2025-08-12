@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,12 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { 
-  BookOpen, 
-  Play, 
-  User, 
-  LogOut, 
-  Settings, 
+import {
+  BookOpen,
+  Play,
+  User,
+  LogOut,
+  Settings,
   Home,
   Menu,
   X,
@@ -70,11 +69,10 @@ export default function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${
-                    isActive
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 ${isActive
                       ? 'bg-purple-100 text-purple-700 font-medium'
                       : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
-                  }`}
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {item.label}
@@ -148,11 +146,10 @@ export default function Navbar() {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${
-                      isActive
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${isActive
                         ? 'bg-purple-100 text-purple-700 font-medium'
                         : 'text-gray-600 hover:text-purple-600 hover:bg-purple-50'
-                    }`}
+                      }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <Icon className="w-4 h-4" />
@@ -160,7 +157,7 @@ export default function Navbar() {
                   </Link>
                 )
               })}
-              
+
               <div className="border-t border-gray-200 pt-2 mt-2">
                 <div className="px-3 py-2">
                   <p className="text-sm font-medium text-gray-900">{user.name}</p>

@@ -122,9 +122,9 @@ export default function LibraryPage() {
             const practiceQuestions = detailedQuizSet.questions.map((q, index) => ({
                 id: index + 1,
                 question: q.content,
-                options: q.choices.map((choice: any) => choice.content),
-                correctAnswer: q.correctAnswers.map((ca: any) =>
-                    q.choices.find((choice: any) => choice.label === ca.choiceLabel)?.content
+                options: q.choices.map((choice) => choice.content),
+                correctAnswer: q.correctAnswers.map((ca) =>
+                    q.choices.find((choice) => choice.label === ca.choiceLabel)?.content
                 ).filter((content): content is string => Boolean(content)),
                 explanation: q.explanation,
                 type: q.type.toLowerCase().replace('_', '-')
