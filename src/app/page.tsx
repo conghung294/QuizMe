@@ -349,7 +349,7 @@ export default function QuizGenerator() {
                       { value: 'true-false', label: '✅ Đúng/Sai', desc: 'Câu hỏi đúng hoặc sai' },
                       { value: 'multiple-response', label: '☑️ Nhiều đáp án đúng', desc: 'Chọn nhiều đáp án' },
                       // { value: 'matching', label: '🔗 Ghép đôi', desc: 'Nối các cặp tương ứng' },
-                      { value: 'completion', label: '📝 Điền khuyết', desc: 'Điền từ vào chỗ trống' }
+                      // { value: 'completion', label: '📝 Điền khuyết', desc: 'Điền từ vào chỗ trống' }
                     ].map((type) => (
                       <div key={type.value} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-purple-50 transition-colors">
                         <Checkbox
